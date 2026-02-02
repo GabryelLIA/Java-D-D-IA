@@ -2,20 +2,14 @@ package com.dnd.model.equipment;
 
 import java.util.Objects;
 
-public class OffensiveEquipment {
+public abstract class EquipementOffensif {
 
-    private final OffensiveType type;
     private final String name;
     private final int attackBonus;
 
-    public OffensiveEquipment(OffensiveType type, String name, int attackBonus) {
-        this.type = Objects.requireNonNull(type);
+    protected EquipementOffensif(String name, int attackBonus) {
         this.name = requireNonBlank(name);
         this.attackBonus = attackBonus;
-    }
-
-    public OffensiveType getType() {
-        return type;
     }
 
     public String getName() {
@@ -28,7 +22,10 @@ public class OffensiveEquipment {
 
     @Override
     public String toString() {
-        return String.format("%s{name='%s', attackBonus=%d}", type, name, attackBonus);
+        return getClass().getSimpleName() + "{" +
+                "name='" + name + '\'' +
+                ", attackBonus=" + attackBonus +
+                '}';
     }
 
     private static String requireNonBlank(String value) {

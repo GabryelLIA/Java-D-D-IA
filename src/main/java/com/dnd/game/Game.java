@@ -1,6 +1,6 @@
 package com.dnd.game;
 
-import com.dnd.model.Personnage;
+import com.dnd.model.character.Personnage;
 
 import java.util.Objects;
 
@@ -30,13 +30,17 @@ public final class Game {
         return playerPosition;
     }
 
-    public int playOneTurn() {
+    public int playOneTurn() throws PersonnageHorsPlateauException {
         requireGameStarted();
 
         int roll = dice.roll();
         int nextPosition = playerPosition + roll;
-        playerPosition = Math.min(nextPosition, BOARD_SIZE);
 
+        if (nextPosition > BOARD_SIZE) {
+            throw new PersonnageHorsPlateauException(playerPosition, nextPosition, BOARD_SIZE);
+        }
+
+        playerPosition = nextPosition;
         return roll;
     }
 

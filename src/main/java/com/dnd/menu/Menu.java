@@ -1,10 +1,12 @@
 package com.dnd.menu;
 
 import com.dnd.game.Game;
+import com.dnd.game.PersonnageHorsPlateauException;
 import com.dnd.model.CharacterType;
-import com.dnd.model.Personnage;
+import com.dnd.model.character.Guerrier;
+import com.dnd.model.character.Magicien;
+import com.dnd.model.character.Personnage;
 
-import java.util.Locale;
 import java.util.Scanner;
 
 public final class Menu {
@@ -36,7 +38,7 @@ public final class Menu {
 
             switch (choice) {
                 case 1 -> System.out.println(character);
-                case 2 -> editCharacter(scanner, character);
+                case 2 -> character = editCharacter(scanner, character);
                 case 3 -> playGame(scanner, game, character);
                 case 4 -> managing = false;
                 case 5 -> {
@@ -53,31 +55,42 @@ public final class Menu {
         CharacterType type = readCharacterType(scanner);
         String name = readNonBlankString(scanner, "Name: ");
 
-        Personnage personnage = new Personnage(type, name);
+        Personnage personnage = newPersonnage(type, name);
         System.out.println("Character created.");
         System.out.println(personnage);
 
         return personnage;
     }
 
-    private void editCharacter(Scanner scanner, Personnage character) {
+    private Personnage editCharacter(Scanner scanner, Personnage character) {
         System.out.println("Edit character");
         System.out.println("1) Change name");
-        System.out.println("2) Change type (resets base stats/equipment)");
+        System.out.println("2) Change type (creates a new character with same name)");
         System.out.println("3) Back");
 
         int choice = readInt(scanner, "Your choice: ");
         switch (choice) {
-            case 1 -> character.setName(readNonBlankString(scanner, "New name: "));
-            case 2 -> character.setType(readCharacterType(scanner));
-            case 3 -> {
-                return;
+            case 1 -> {
+                character.setName(readNonBlankString(scanner, "New name: "));
+                System.out.println("Updated character:");
+                System.out.println(character);
+                return character;
             }
-            default -> System.out.println("Invalid choice.");
+            case 2 -> {
+                CharacterType newType = readCharacterType(scanner);
+                Personnage newCharacter = newPersonnage(newType, character.getName());
+                System.out.println("Updated character:");
+                System.out.println(newCharacter);
+                return newCharacter;
+            }
+            case 3 -> {
+                return character;
+            }
+            default -> {
+                System.out.println("Invalid choice.");
+                return character;
+            }
         }
-
-        System.out.println("Updated character:");
-        System.out.println(character);
     }
 
     private void playGame(Scanner scanner, Game game, Personnage character) {
@@ -88,12 +101,21 @@ public final class Menu {
         while (game.isRunning()) {
             readLine(scanner, "Press ENTER to roll the dice...");
 
-            int roll = game.playOneTurn();
-            System.out.printf("You rolled %d. You are now on tile %d/%d.%n",
-                    roll,
-                    game.getPlayerPosition(),
-                    Game.BOARD_SIZE
-            );
+            try {
+                int roll = game.playOneTurn();
+                System.out.printf("You rolled %d. You are now on tile %d/%d.%n",
+                        roll,
+                        game.getPlayerPosition(),
+                        Game.BOARD_SIZE
+                );
+            } catch (PersonnageHorsPlateauException ex) {
+                System.out.printf("Roll would move you out of the board (%d -> %d). You stay on tile %d/%d.%n",
+                        ex.getCurrentPosition(),
+                        ex.getAttemptedPosition(),
+                        ex.getCurrentPosition(),
+                        Game.BOARD_SIZE
+                );
+            }
         }
 
         if (game.hasWon()) {
@@ -112,7 +134,7 @@ public final class Menu {
     }
 
     private void printMainMenu() {
-        System.out.println("=== D&D (Iteration 2) ===");
+        System.out.println("=== D&D (Iteration 3) ===");
         System.out.println("1) New character");
         System.out.println("2) Quit");
     }
@@ -144,6 +166,13 @@ public final class Menu {
                 default -> System.out.println("Invalid type. Try again.");
             }
         }
+    }
+
+    private Personnage newPersonnage(CharacterType type, String name) {
+        return switch (type) {
+            case WARRIOR -> new Guerrier(name);
+            case WIZARD -> new Magicien(name);
+        };
     }
 
     private int readInt(Scanner scanner, String prompt) {
