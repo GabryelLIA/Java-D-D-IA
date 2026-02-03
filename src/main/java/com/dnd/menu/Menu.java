@@ -1,5 +1,9 @@
 package com.dnd.menu;
 
+import com.dnd.db.HeroEntity;
+import com.dnd.db.HeroMapper;
+import com.dnd.db.HeroRepository;
+import com.dnd.db.HeroSession;
 import com.dnd.game.Game;
 import com.dnd.game.PersonnageHorsPlateauException;
 import com.dnd.game.TurnOutcome;
@@ -8,9 +12,20 @@ import com.dnd.model.character.Guerrier;
 import com.dnd.model.character.Magicien;
 import com.dnd.model.character.Personnage;
 
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Objects;
 import java.util.Scanner;
 
 public final class Menu {
+
+    private final HeroRepository heroRepository;
+    private final HeroMapper heroMapper;
+
+    public Menu(HeroRepository heroRepository) {
+        this.heroRepository = Objects.requireNonNull(heroRepository);
+        this.heroMapper = new HeroMapper();
+    }
 
     public void run(Scanner scanner, Game game) {
         boolean running = true;
@@ -20,8 +35,9 @@ public final class Menu {
             int choice = readInt(scanner, "Your choice: ");
 
             switch (choice) {
-                case 1 -> running = handleCreateAndManageCharacter(scanner, game);
-                case 2 -> running = false;
+                case 1 -> playWithExistingHero(scanner, game);
+                case 2 -> createHeroAndPlay(scanner, game);
+                case 3 -> running = false;
                 default -> System.out.println("Invalid choice. Try again.");
             }
         }
@@ -29,73 +45,124 @@ public final class Menu {
         System.out.println("Bye.");
     }
 
-    private boolean handleCreateAndManageCharacter(Scanner scanner, Game game) {
-        Personnage character = createCharacter(scanner);
-
-        boolean managing = true;
-        while (managing) {
-            printCharacterMenu(character);
-            int choice = readInt(scanner, "Your choice: ");
-
-            switch (choice) {
-                case 1 -> System.out.println(character);
-                case 2 -> character = editCharacter(scanner, character);
-                case 3 -> playGame(scanner, game, character);
-                case 4 -> managing = false;
-                case 5 -> {
-                    return false;
-                }
-                default -> System.out.println("Invalid choice. Try again.");
-            }
+    private void playWithExistingHero(Scanner scanner, Game game) {
+        List<HeroEntity> heroes;
+        try {
+            heroes = heroRepository.getHeroes();
+        } catch (SQLException ex) {
+            System.out.println("DB error while loading heroes: " + ex.getMessage());
+            return;
         }
 
-        return true;
+        if (heroes.isEmpty()) {
+            System.out.println("No heroes in DB. Create one first.");
+            return;
+        }
+
+        System.out.println("=== Heroes ===");
+        for (int i = 0; i < heroes.size(); i++) {
+            HeroEntity h = heroes.get(i);
+            System.out.printf("%d) #%d %s (%s) PV=%d Force=%d%n",
+                    i + 1,
+                    h.id(),
+                    h.name(),
+                    h.type(),
+                    h.lifePoints(),
+                    h.baseAttack()
+            );
+        }
+
+        int idx = readInt(scanner, "Choose hero number: ") - 1;
+        if (idx < 0 || idx >= heroes.size()) {
+            System.out.println("Invalid hero.");
+            return;
+        }
+
+        HeroEntity selected = heroes.get(idx);
+        Personnage hero = heroMapper.toDomain(selected);
+        HeroSession session = new HeroSession(selected.id(), hero);
+
+        manageHero(scanner, game, session);
     }
 
-    private Personnage createCharacter(Scanner scanner) {
+    private void createHeroAndPlay(Scanner scanner, Game game) {
         CharacterType type = readCharacterType(scanner);
         String name = readNonBlankString(scanner, "Name: ");
 
-        Personnage personnage = newPersonnage(type, name);
-        System.out.println("Character created.");
-        System.out.println(personnage);
+        Personnage hero = newPersonnage(type, name);
 
-        return personnage;
+        try {
+            HeroEntity created = heroRepository.createHero(heroMapper.toEntity(null, hero));
+            System.out.println("Hero saved with id #" + created.id());
+            manageHero(scanner, game, new HeroSession(created.id(), hero));
+        } catch (SQLException ex) {
+            System.out.println("DB error while creating hero: " + ex.getMessage());
+        }
     }
 
-    private Personnage editCharacter(Scanner scanner, Personnage character) {
-        System.out.println("Edit character");
+    private void manageHero(Scanner scanner, Game game, HeroSession session) {
+        HeroSession currentSession = session;
+
+        boolean managing = true;
+        while (managing) {
+            Personnage hero = currentSession.hero();
+
+            printHeroMenu(hero);
+            int choice = readInt(scanner, "Your choice: ");
+
+            switch (choice) {
+                case 1 -> System.out.println(hero);
+                case 2 -> currentSession = editHero(scanner, currentSession);
+                case 3 -> playGame(scanner, game, currentSession);
+                case 4 -> managing = false;
+                default -> System.out.println("Invalid choice. Try again.");
+            }
+        }
+    }
+
+    private HeroSession editHero(Scanner scanner, HeroSession session) {
+        Personnage hero = session.hero();
+
+        System.out.println("Edit hero");
         System.out.println("1) Change name");
         System.out.println("2) Change type (creates a new character with same name)");
         System.out.println("3) Back");
 
         int choice = readInt(scanner, "Your choice: ");
+
+        Personnage updated;
         switch (choice) {
             case 1 -> {
-                character.setName(readNonBlankString(scanner, "New name: "));
-                System.out.println("Updated character:");
-                System.out.println(character);
-                return character;
+                hero.setName(readNonBlankString(scanner, "New name: "));
+                updated = hero;
             }
             case 2 -> {
                 CharacterType newType = readCharacterType(scanner);
-                Personnage newCharacter = newPersonnage(newType, character.getName());
-                System.out.println("Updated character:");
-                System.out.println(newCharacter);
-                return newCharacter;
+                updated = newPersonnage(newType, hero.getName());
             }
             case 3 -> {
-                return character;
+                return session;
             }
             default -> {
                 System.out.println("Invalid choice.");
-                return character;
+                return session;
             }
+        }
+
+        try {
+            heroRepository.editHero(heroMapper.toEntity(session.id(), updated));
+            System.out.println("Hero saved.");
+            return new HeroSession(session.id(), updated);
+        } catch (SQLException ex) {
+            System.out.println("DB error while editing hero: " + ex.getMessage());
+            return session;
         }
     }
 
-    private void playGame(Scanner scanner, Game game, Personnage character) {
-        game.startNewGame(character);
+    private void playGame(Scanner scanner, Game game, HeroSession session) {
+        Personnage hero = session.hero();
+
+        game.startNewGame(hero);
 
         System.out.printf("Starting game. You are on tile %d/%d.%n", game.getPlayerPosition(), game.getBoardSize());
         System.out.println("Current tile: " + game.getCurrentCase());
@@ -130,29 +197,36 @@ public final class Menu {
 
         game.endGame();
 
+        // iteration 5 asks to persist life points changes during the game
+        try {
+            heroRepository.changeLifePoints(session.id(), hero.getLifePoints());
+        } catch (SQLException ex) {
+            System.out.println("DB error while saving life points: " + ex.getMessage());
+        }
+
         System.out.println("1) Play again");
-        System.out.println("2) Back to character menu");
+        System.out.println("2) Back to hero menu");
 
         int choice = readInt(scanner, "Your choice: ");
         if (choice == 1) {
-            playGame(scanner, game, character);
+            playGame(scanner, game, session);
         }
     }
 
     private void printMainMenu() {
-        System.out.println("=== D&D (Iteration 4) ===");
-        System.out.println("1) New character");
-        System.out.println("2) Quit");
+        System.out.println("=== D&D (Iteration 5) ===");
+        System.out.println("1) Choose existing hero (DB)");
+        System.out.println("2) Create new hero (DB)");
+        System.out.println("3) Quit");
     }
 
-    private void printCharacterMenu(Personnage character) {
-        System.out.println("=== Character ===");
-        System.out.println("Current: " + character.getName() + " (" + character.getType() + ")");
-        System.out.println("1) Show character info");
-        System.out.println("2) Edit character");
+    private void printHeroMenu(Personnage hero) {
+        System.out.println("=== Hero ===");
+        System.out.println("Current: " + hero.getName() + " (" + hero.getType() + ")");
+        System.out.println("1) Show hero info");
+        System.out.println("2) Edit hero");
         System.out.println("3) Start game");
         System.out.println("4) Back to main menu");
-        System.out.println("5) Quit");
     }
 
     private CharacterType readCharacterType(Scanner scanner) {

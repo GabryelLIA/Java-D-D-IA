@@ -4,6 +4,11 @@ import com.dnd.board.CaseVide;
 import com.dnd.board.Ennemi;
 import com.dnd.board.Plateau;
 import com.dnd.board.Potion;
+import com.dnd.db.ConnectionProvider;
+import com.dnd.db.DbConfig;
+import com.dnd.db.DbConfigLoader;
+import com.dnd.db.HeroRepository;
+import com.dnd.db.JdbcHeroRepository;
 import com.dnd.game.FixedDice;
 import com.dnd.game.Game;
 import com.dnd.menu.Menu;
@@ -26,6 +31,14 @@ public final class Main {
 
         Game game = new Game(new FixedDice(1), plateau);
 
-        new Menu().run(scanner, game);
+        try {
+            DbConfig config = new DbConfigLoader("db/db.properties").load();
+            HeroRepository heroRepository = new JdbcHeroRepository(new ConnectionProvider(config));
+            new Menu(heroRepository).run(scanner, game);
+        } catch (RuntimeException ex) {
+            System.out.println("Unable to start (DB config missing/invalid).\n" +
+                    "Create src/main/resources/db/db.properties from db/db.properties.example (or set DB_URL/DB_USER/DB_PASSWORD env vars).\n" +
+                    "Details: " + ex.getMessage());
+        }
     }
 }
