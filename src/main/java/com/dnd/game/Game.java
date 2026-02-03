@@ -1,20 +1,26 @@
 package com.dnd.game;
 
+import com.dnd.board.Case;
+import com.dnd.board.Plateau;
 import com.dnd.model.character.Personnage;
 
 import java.util.Objects;
 
 public final class Game {
 
-    public static final int BOARD_SIZE = 64;
-
     private final Dice dice;
+    private final Plateau plateau;
 
     private Personnage player;
     private int playerPosition;
 
-    public Game(Dice dice) {
+    public Game(Dice dice, Plateau plateau) {
         this.dice = Objects.requireNonNull(dice);
+        this.plateau = Objects.requireNonNull(plateau);
+    }
+
+    public int getBoardSize() {
+        return plateau.size();
     }
 
     public void startNewGame(Personnage player) {
@@ -23,30 +29,35 @@ public final class Game {
     }
 
     public boolean isRunning() {
-        return player != null && playerPosition < BOARD_SIZE;
+        return player != null && playerPosition < getBoardSize();
     }
 
     public int getPlayerPosition() {
         return playerPosition;
     }
 
-    public int playOneTurn() throws PersonnageHorsPlateauException {
+    public Case getCurrentCase() {
+        requireGameStarted();
+        return plateau.getCaseAt(playerPosition);
+    }
+
+    public TurnOutcome playOneTurn() throws PersonnageHorsPlateauException {
         requireGameStarted();
 
         int roll = dice.roll();
         int nextPosition = playerPosition + roll;
 
-        if (nextPosition > BOARD_SIZE) {
-            throw new PersonnageHorsPlateauException(playerPosition, nextPosition, BOARD_SIZE);
+        if (nextPosition > getBoardSize()) {
+            throw new PersonnageHorsPlateauException(playerPosition, nextPosition, getBoardSize());
         }
 
         playerPosition = nextPosition;
-        return roll;
+        return new TurnOutcome(roll, playerPosition, getCurrentCase());
     }
 
     public boolean hasWon() {
         requireGameStarted();
-        return playerPosition >= BOARD_SIZE;
+        return playerPosition >= getBoardSize();
     }
 
     public void endGame() {

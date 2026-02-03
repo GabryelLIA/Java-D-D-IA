@@ -2,6 +2,7 @@ package com.dnd.menu;
 
 import com.dnd.game.Game;
 import com.dnd.game.PersonnageHorsPlateauException;
+import com.dnd.game.TurnOutcome;
 import com.dnd.model.CharacterType;
 import com.dnd.model.character.Guerrier;
 import com.dnd.model.character.Magicien;
@@ -96,24 +97,29 @@ public final class Menu {
     private void playGame(Scanner scanner, Game game, Personnage character) {
         game.startNewGame(character);
 
-        System.out.printf("Starting game. You are on tile %d/%d.%n", game.getPlayerPosition(), Game.BOARD_SIZE);
+        System.out.printf("Starting game. You are on tile %d/%d.%n", game.getPlayerPosition(), game.getBoardSize());
+        System.out.println("Current tile: " + game.getCurrentCase());
 
         while (game.isRunning()) {
             readLine(scanner, "Press ENTER to roll the dice...");
 
             try {
-                int roll = game.playOneTurn();
+                TurnOutcome outcome = game.playOneTurn();
+
                 System.out.printf("You rolled %d. You are now on tile %d/%d.%n",
-                        roll,
-                        game.getPlayerPosition(),
-                        Game.BOARD_SIZE
+                        outcome.roll(),
+                        outcome.position(),
+                        game.getBoardSize()
                 );
+
+                System.out.println("You landed on: " + outcome.landedCase());
+
             } catch (PersonnageHorsPlateauException ex) {
                 System.out.printf("Roll would move you out of the board (%d -> %d). You stay on tile %d/%d.%n",
                         ex.getCurrentPosition(),
                         ex.getAttemptedPosition(),
                         ex.getCurrentPosition(),
-                        Game.BOARD_SIZE
+                        ex.getBoardSize()
                 );
             }
         }
@@ -134,7 +140,7 @@ public final class Menu {
     }
 
     private void printMainMenu() {
-        System.out.println("=== D&D (Iteration 3) ===");
+        System.out.println("=== D&D (Iteration 4) ===");
         System.out.println("1) New character");
         System.out.println("2) Quit");
     }
