@@ -52,6 +52,10 @@ public final class Game {
         return plateau.getCaseAt(playerPosition);
     }
 
+    public Case getCaseAt(int position) {
+        return plateau.getCaseAt(position);
+    }
+
     public void clearCurrentCase() {
         requireGameStarted();
         plateau.setCaseAt(playerPosition, new CaseVide());

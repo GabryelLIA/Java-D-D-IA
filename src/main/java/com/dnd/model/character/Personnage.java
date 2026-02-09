@@ -8,6 +8,8 @@ import java.util.Objects;
 
 public abstract class Personnage {
 
+    private final int maxLifePoints;
+
     private String name;
     private int lifePoints;
     private int baseAttack;
@@ -17,16 +19,20 @@ public abstract class Personnage {
 
     protected Personnage(
             String name,
+            int maxLifePoints,
             int lifePoints,
             int baseAttack,
             EquipementOffensif equipementOffensif,
             EquipementDefensif equipementDefensif
     ) {
         this.name = requireNonBlank(name);
-        this.lifePoints = requireNonNegative(lifePoints, "lifePoints");
+        this.maxLifePoints = requireNonNegative(maxLifePoints, "maxLifePoints");
         this.baseAttack = requireNonNegative(baseAttack, "baseAttack");
         this.equipementOffensif = Objects.requireNonNull(equipementOffensif);
         this.equipementDefensif = Objects.requireNonNull(equipementDefensif);
+
+        // clamp life points to [0; maxLifePoints]
+        this.lifePoints = clampLifePoints(lifePoints);
     }
 
     public abstract CharacterType getType();
@@ -39,12 +45,16 @@ public abstract class Personnage {
         this.name = requireNonBlank(name);
     }
 
+    public int getMaxLifePoints() {
+        return maxLifePoints;
+    }
+
     public int getLifePoints() {
         return lifePoints;
     }
 
     public void setLifePoints(int lifePoints) {
-        this.lifePoints = requireNonNegative(lifePoints, "lifePoints");
+        this.lifePoints = clampLifePoints(lifePoints);
     }
 
     public int getBaseAttack() {
@@ -89,6 +99,11 @@ public abstract class Personnage {
             throw new IllegalArgumentException("name must not be blank");
         }
         return value;
+    }
+
+    private int clampLifePoints(int lifePoints) {
+        int nonNegative = requireNonNegative(lifePoints, "lifePoints");
+        return Math.min(nonNegative, maxLifePoints);
     }
 
     private static int requireNonNegative(int value, String fieldName) {

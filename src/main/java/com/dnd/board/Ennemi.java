@@ -1,14 +1,16 @@
 package com.dnd.board;
 
+import com.dnd.model.character.Personnage;
+
 import java.util.Objects;
 
-public final class Ennemi implements Case {
+public class Ennemi implements Case {
 
     private final String name;
     private int lifePoints;
     private final int attack;
 
-    public Ennemi(String name, int lifePoints, int attack) {
+    protected Ennemi(String name, int lifePoints, int attack) {
         this.name = requireNonBlank(name);
         this.lifePoints = requireNonNegative(lifePoints, "lifePoints");
         this.attack = requireNonNegative(attack, "attack");
@@ -33,6 +35,13 @@ public final class Ennemi implements Case {
     @Override
     public String describe() {
         return "Ennemi : " + name + ", PV=" + lifePoints + ", Attaque=" + attack;
+    }
+
+    @Override
+    public InteractionResult interaction(Personnage personnage) {
+        // Combat is handled in iteration 6 by the menu/combat service.
+        System.out.println("You encountered an enemy: " + describe());
+        return InteractionResult.KEEP_TILE;
     }
 
     @Override

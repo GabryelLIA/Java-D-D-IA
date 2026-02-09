@@ -1,13 +1,15 @@
 package com.dnd.board;
 
+import com.dnd.model.character.Personnage;
+
 import java.util.Objects;
 
-public final class Potion implements Case {
+public class Potion implements Case {
 
     private final String name;
     private final int healPoints;
 
-    public Potion(String name, int healPoints) {
+    protected Potion(String name, int healPoints) {
         this.name = requireNonBlank(name);
         this.healPoints = requireNonNegative(healPoints, "healPoints");
     }
@@ -23,6 +25,20 @@ public final class Potion implements Case {
     @Override
     public String describe() {
         return "Potion : " + name + ", Soin=" + healPoints;
+    }
+
+    @Override
+    public InteractionResult interaction(Personnage personnage) {
+        int before = personnage.getLifePoints();
+
+        int healed = Math.min(personnage.getMaxLifePoints(), before + healPoints);
+        personnage.setLifePoints(healed);
+
+        int after = personnage.getLifePoints();
+        System.out.printf("You drink %s: PV %d -> %d%n", name, before, after);
+
+        // A potion is consumed once used.
+        return InteractionResult.REMOVE_TILE;
     }
 
     @Override

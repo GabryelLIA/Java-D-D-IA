@@ -1,6 +1,7 @@
 package com.dnd.menu;
 
 import com.dnd.board.Ennemi;
+import com.dnd.board.InteractionResult;
 import com.dnd.board.Potion;
 import com.dnd.combat.CombatEndState;
 import com.dnd.combat.CombatOutcome;
@@ -43,7 +44,8 @@ public final class Menu {
             switch (choice) {
                 case 1 -> playWithExistingHero(scanner, game);
                 case 2 -> createHeroAndPlay(scanner, game);
-                case 3 -> running = false;
+                case 3 -> printBoard(game);
+                case 4 -> running = false;
                 default -> System.out.println("Invalid choice. Try again.");
             }
         }
@@ -188,6 +190,19 @@ public final class Menu {
 
                 System.out.println("You landed on: " + outcome.landedCase());
 
+                // Iteration 7 asks for an interaction() method on Case.
+                InteractionResult interactionResult = outcome.landedCase().interaction(hero);
+
+                if (outcome.landedCase() instanceof Potion) {
+                    // Potion interaction updated hero PV.
+                    persistLifePoints(session);
+                }
+
+                // Only remove the tile if it was actually consumed / taken.
+                if (interactionResult == InteractionResult.REMOVE_TILE) {
+                    game.clearCurrentCase();
+                }
+
                 if (outcome.landedCase() instanceof Ennemi enemy) {
                     CombatOutcome combatOutcome = combatService.fight(scanner, hero, enemy);
                     persistLifePoints(session);
@@ -207,14 +222,6 @@ public final class Menu {
                     if (game.hasLost()) {
                         System.out.println("Your hero died. Game over.");
                     }
-
-                } else if (outcome.landedCase() instanceof Potion potion) {
-                    hero.setLifePoints(hero.getLifePoints() + potion.getHealPoints());
-                    System.out.printf("You drink %s and recover %d PV. Your PV=%d%n",
-                            potion.getName(),
-                            potion.getHealPoints(),
-                            hero.getLifePoints());
-                    persistLifePoints(session);
                 }
 
             } catch (PersonnageHorsPlateauException ex) {
@@ -253,10 +260,18 @@ public final class Menu {
     }
 
     private void printMainMenu() {
-        System.out.println("=== D&D (Iteration 6) ===");
+        System.out.println("=== D&D (Iteration 7) ===");
         System.out.println("1) Choose existing hero (DB)");
         System.out.println("2) Create new hero (DB)");
-        System.out.println("3) Quit");
+        System.out.println("3) Print board (debug)");
+        System.out.println("4) Quit");
+    }
+
+    private void printBoard(Game game) {
+        System.out.println("=== Board ===");
+        for (int pos = 1; pos <= game.getBoardSize(); pos++) {
+            System.out.printf("%02d: %s%n", pos, game.getCaseAt(pos));
+        }
     }
 
     private void printHeroMenu(Personnage hero) {

@@ -11,6 +11,7 @@ public final class Guerrier extends Personnage {
                 name,
                 10,
                 10,
+                10,
                 new Arme("Arme de base", 0),
                 new Bouclier("Bouclier de base", 0)
         );

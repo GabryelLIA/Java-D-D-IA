@@ -10,6 +10,7 @@ public final class Magicien extends Personnage {
         super(
                 name,
                 6,
+                6,
                 15,
                 new Sort("Sort de base", 0),
                 new Philtre("Philtre de base", 0)
