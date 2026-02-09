@@ -1,6 +1,7 @@
 package com.dnd.game;
 
 import com.dnd.board.Case;
+import com.dnd.board.CaseVide;
 import com.dnd.board.Plateau;
 import com.dnd.model.character.Personnage;
 
@@ -29,16 +30,39 @@ public final class Game {
     }
 
     public boolean isRunning() {
-        return player != null && playerPosition < getBoardSize();
+        return player != null && !hasLost() && playerPosition < getBoardSize();
+    }
+
+    public boolean hasLost() {
+        requireGameStarted();
+        return player.getLifePoints() <= 0;
     }
 
     public int getPlayerPosition() {
         return playerPosition;
     }
 
+    public Personnage getPlayer() {
+        requireGameStarted();
+        return player;
+    }
+
     public Case getCurrentCase() {
         requireGameStarted();
         return plateau.getCaseAt(playerPosition);
+    }
+
+    public void clearCurrentCase() {
+        requireGameStarted();
+        plateau.setCaseAt(playerPosition, new CaseVide());
+    }
+
+    public void moveBack(int steps) {
+        requireGameStarted();
+        if (steps < 1) {
+            throw new IllegalArgumentException("steps must be >= 1");
+        }
+        playerPosition = Math.max(1, playerPosition - steps);
     }
 
     public TurnOutcome playOneTurn() throws PersonnageHorsPlateauException {
@@ -57,7 +81,7 @@ public final class Game {
 
     public boolean hasWon() {
         requireGameStarted();
-        return playerPosition >= getBoardSize();
+        return playerPosition >= getBoardSize() && !hasLost();
     }
 
     public void endGame() {

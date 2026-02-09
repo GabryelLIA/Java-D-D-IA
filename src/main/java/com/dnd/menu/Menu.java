@@ -1,11 +1,17 @@
 package com.dnd.menu;
 
+import com.dnd.board.Ennemi;
+import com.dnd.board.Potion;
+import com.dnd.combat.CombatEndState;
+import com.dnd.combat.CombatOutcome;
+import com.dnd.combat.CombatService;
 import com.dnd.db.HeroEntity;
 import com.dnd.db.HeroMapper;
 import com.dnd.db.HeroRepository;
 import com.dnd.db.HeroSession;
 import com.dnd.game.Game;
 import com.dnd.game.PersonnageHorsPlateauException;
+import com.dnd.game.RandomDice;
 import com.dnd.game.TurnOutcome;
 import com.dnd.model.CharacterType;
 import com.dnd.model.character.Guerrier;
@@ -161,6 +167,7 @@ public final class Menu {
 
     private void playGame(Scanner scanner, Game game, HeroSession session) {
         Personnage hero = session.hero();
+        CombatService combatService = new CombatService(new RandomDice());
 
         game.startNewGame(hero);
 
@@ -181,6 +188,35 @@ public final class Menu {
 
                 System.out.println("You landed on: " + outcome.landedCase());
 
+                if (outcome.landedCase() instanceof Ennemi enemy) {
+                    CombatOutcome combatOutcome = combatService.fight(scanner, hero, enemy);
+                    persistLifePoints(session);
+
+                    if (combatOutcome.endState() == CombatEndState.ENEMY_DEFEATED) {
+                        // Enemy disappears from the board when dead.
+                        game.clearCurrentCase();
+                    } else if (combatOutcome.endState() == CombatEndState.HERO_FLED) {
+                        game.moveBack(combatOutcome.fleeSteps());
+                        System.out.printf("You moved back %d tile(s). Now at %d/%d.%n",
+                                combatOutcome.fleeSteps(),
+                                game.getPlayerPosition(),
+                                game.getBoardSize());
+                        System.out.println("Current tile: " + game.getCurrentCase());
+                    }
+
+                    if (game.hasLost()) {
+                        System.out.println("Your hero died. Game over.");
+                    }
+
+                } else if (outcome.landedCase() instanceof Potion potion) {
+                    hero.setLifePoints(hero.getLifePoints() + potion.getHealPoints());
+                    System.out.printf("You drink %s and recover %d PV. Your PV=%d%n",
+                            potion.getName(),
+                            potion.getHealPoints(),
+                            hero.getLifePoints());
+                    persistLifePoints(session);
+                }
+
             } catch (PersonnageHorsPlateauException ex) {
                 System.out.printf("Roll would move you out of the board (%d -> %d). You stay on tile %d/%d.%n",
                         ex.getCurrentPosition(),
@@ -193,16 +229,11 @@ public final class Menu {
 
         if (game.hasWon()) {
             System.out.println("You reached the end of the board. You win!");
+        } else if (game.hasLost()) {
+            System.out.println("You lost the game.");
         }
 
         game.endGame();
-
-        // iteration 5 asks to persist life points changes during the game
-        try {
-            heroRepository.changeLifePoints(session.id(), hero.getLifePoints());
-        } catch (SQLException ex) {
-            System.out.println("DB error while saving life points: " + ex.getMessage());
-        }
 
         System.out.println("1) Play again");
         System.out.println("2) Back to hero menu");
@@ -213,8 +244,16 @@ public final class Menu {
         }
     }
 
+    private void persistLifePoints(HeroSession session) {
+        try {
+            heroRepository.changeLifePoints(session.id(), session.hero().getLifePoints());
+        } catch (SQLException ex) {
+            System.out.println("DB error while saving life points: " + ex.getMessage());
+        }
+    }
+
     private void printMainMenu() {
-        System.out.println("=== D&D (Iteration 5) ===");
+        System.out.println("=== D&D (Iteration 6) ===");
         System.out.println("1) Choose existing hero (DB)");
         System.out.println("2) Create new hero (DB)");
         System.out.println("3) Quit");
